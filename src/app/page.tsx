@@ -1,0 +1,314 @@
+"use client";
+
+import { AnchorProvider, Program } from "@project-serum/anchor";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
+import { useEffect, useState } from "react";
+
+const PROGRAM_ID = new PublicKey(
+  "JB8JBchNTxmHuw49YfLkSk9jgTqQbujwjqUdUwz3TQeE"
+);
+
+const IDL = {
+  version: "0.1.0",
+  name: "notes_dapp",
+  instructions: [
+    {
+      name: "createNote",
+      accounts: [
+        { name: "note", isMut: true, isSigner: false },
+        { name: "author", isMut: true, isSigner: true },
+        { name: "systemProgram", isMut: false, isSigner: false },
+      ],
+      args: [
+        { name: "title", type: "string" },
+        { name: "content", type: "string" },
+      ],
+    },
+    {
+      name: "updateNote",
+      accounts: [
+        { name: "note", isMut: true, isSigner: false },
+        { name: "author", isMut: false, isSigner: true },
+      ],
+      args: [{ name: "newContent", type: "string" }],
+    },
+    {
+      name: "deleteNote",
+      accounts: [
+        { name: "note", isMut: true, isSigner: false },
+        { name: "author", isMut: true, isSigner: true },
+      ],
+      args: [],
+    },
+  ],
+  accounts: [
+    {
+      name: "Note",
+      type: {
+        kind: "struct",
+        fields: [
+          { name: "author", type: "publicKey" },
+          { name: "title", type: "string" },
+          { name: "content", type: "string" },
+          { name: "createdAt", type: "i64" },
+          { name: "lastUpdated", type: "i64" },
+        ],
+      },
+    },
+  ],
+  errors: [
+    {
+      code: 6000,
+      name: "TitleTooLong",
+      msg: "The title cannot exceed 100 characters.",
+    },
+    {
+      code: 6001,
+      name: "ContentTooLong",
+      msg: "The content cannot exceed 1000 characters.",
+    },
+    { code: 6002, name: "TitleEmpty", msg: "The title cannot be empty." },
+    {
+      code: 6003,
+      name: "ContentEmpty",
+      msg: "The content cannot be empty.",
+    },
+    {
+      code: 6004,
+      name: "Unauthorized",
+      msg: "Unauthorized to perform this action.",
+    },
+  ],
+};
+
+export default function Home() {
+  const { connection } = useConnection();
+  const wallet = useWallet();
+
+  const [notes, setNotes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+
+  const getProgram = () => {
+    if (!wallet.publicKey || !wallet.signTransaction) return null;
+    const provider = new AnchorProvider(connection, wallet as any, {});
+    return new Program(IDL as any, PROGRAM_ID, provider);
+  };
+
+  const getNoteAddress = (title: string) => {
+    if (!wallet.publicKey || !wallet.signTransaction) return null;
+    const [noteAddress] = PublicKey.findProgramAddressSync(
+      [Buffer.from("note"), wallet.publicKey.toBuffer(), Buffer.from(title)],
+      PROGRAM_ID
+    );
+    return noteAddress;
+  };
+
+  // Load notes
+  const loadNotes = async () => {
+    if (!wallet.publicKey) return;
+
+    setLoading(true);
+    try {
+      const program = getProgram();
+      if (!program) return;
+
+      const notes = await program.account.note.all([
+        {
+          memcmp: {
+            offset: 8, // Discriminator size account: Note: {author, title, con....}
+            bytes: wallet.publicKey.toBase58(),
+          },
+        },
+      ]);
+
+      console.log("Loaded notes:", notes);
+      setNotes(notes);
+      setMessage("");
+    } catch (error) {
+      console.error("Error loading notes:", error);
+      setMessage("Failed to load notes.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  //create notes
+  const createNote = async (title: string, content: string) => {
+    if (!title.trim() || !content.trim()) {
+      setMessage("Title and content cannot be empty.");
+      return;
+    }
+    if (title.length > 100) {
+      setMessage("Title cannot be longer than 100 chars");
+      return;
+    }
+    if (content.length > 1000) {
+      setMessage("Content cannot be longer than 1000 chars");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const program = getProgram();
+      if (!program) return;
+
+      const noteAddress = getNoteAddress(title);
+      if (!noteAddress) return;
+
+      await program.methods
+        .createNote(title, content)
+        .accounts({
+          note: noteAddress,
+          author: wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      console.log("Note created with title:", title);
+      setMessage("Note created successfully.");
+      setTitle("");
+      setContent("");
+      await loadNotes();
+    } catch (error) {
+      console.error("Error creating note:", error);
+      setMessage("Failed to create note.");
+    }
+    setLoading(false);
+  };
+
+  // update notes
+  const updateNote = async (note: any) => {
+    if (!editContent.trim()) {
+      setMessage("Content cannot be empty.");
+      return;
+    }
+    if (editContent.length > 1000) {
+      setMessage("Content cannot be longer than 1000 chars");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const program = getProgram();
+      if (!program) return;
+
+      const noteAddress = getNoteAddress(note.account.title);
+      if (!noteAddress) return;
+
+      await program.methods
+        .updateNote(editContent)
+        .accounts({
+          note: noteAddress,
+          author: wallet.publicKey,
+        })
+        .rpc();
+
+      setMessage("Note updated successfully.");
+      setEditTitle("");
+      setEditContent("");
+      await loadNotes();
+    } catch (error) {
+      console.error("Error updating note:", error);
+      setMessage("Failed to update note.");
+    }
+    setLoading(false);
+  };
+  // delete notes
+
+  const deleteNote = async (note: any) => {
+    setLoading(true);
+    try {
+      const program = getProgram();
+      if (!program) return;
+
+      const noteAddress = getNoteAddress(note.account.title);
+      if (!noteAddress) return;
+
+      await program.methods
+        .deleteNote()
+        .accounts({
+          note: noteAddress,
+          author: wallet.publicKey,
+        })
+        .rpc();
+      setMessage("Note deleted successfully.");
+      await loadNotes();
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      setMessage("Error to delete note.");
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (wallet.connected) {
+      loadNotes();
+    }
+  }, [wallet.connected]);
+
+  if (!wallet.connected) {
+    return (
+      <div className="text-gray-700">
+        {" "}
+        Wallet not connected please connect your wallet
+      </div>
+    );
+  }
+
+  console.log("Rendering notes:", notes, notes?.length);
+  return (
+    <div className="text-gray-700">
+      <div className="mb-6">
+        <h2 className="text-2xl mb-6">Create new Note</h2>
+        <div className="mb-4">
+          <label htmlFor="note-title" className="text-sm block font-medium">
+            Title ({title.length}/100)
+          </label>
+          <input
+            id="note-title"
+            type="text"
+            name="title"
+            value={title}
+            placeholder="Title here.."
+            onChange={(e) => setTitle(e.target.value)}
+            className="border border-gray-300 rounded-lg p-2 w-full"
+          />
+        </div>
+        <div className="mb-4">
+          <label htmlFor="note-content" className="text-sm block font-medium">
+            Content ({content.length}/1000)
+          </label>
+          <textarea
+            maxLength={1000}
+            name="content"
+            value={content}
+            rows={5}
+            onChange={(e) => setContent(e.target.value)}
+            className="border border-gray-300 rounded-lg p-2 w-full"
+            placeholder="Content here.."
+          />
+        </div>
+        <button
+          onClick={() => createNote(title, content)}
+          disabled={loading || !title.trim() || !content.trim()}
+          className="bg-blue-500 text-white w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? "Creating note..." : "Create Note"}
+        </button>
+      </div>
+      <div>
+        {notes?.map((note: any, index: number) => {
+          return <div>{JSON.stringify(note)}</div>;
+        })}
+      </div>
+    </div>
+  );
+}
