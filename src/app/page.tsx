@@ -92,9 +92,8 @@ export default function Home() {
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-
-  const [editTitle, setEditTitle] = useState("");
-  const [editContent, setEditContent] = useState("");
+  // When set, we are editing this note and reuse the top title/content inputs
+  const [editingNote, setEditingNote] = useState<any | null>(null);
 
   const getProgram = () => {
     if (!wallet.publicKey || !wallet.signTransaction) return null;
@@ -185,12 +184,14 @@ export default function Home() {
   };
 
   // update notes
-  const updateNote = async (note: any) => {
-    if (!editContent.trim()) {
+  const updateNote = async () => {
+    // editingNote must be set and we reuse the top `content` input as the new content
+    if (!editingNote) return;
+    if (!content.trim()) {
       setMessage("Content cannot be empty.");
       return;
     }
-    if (editContent.length > 1000) {
+    if (content.length > 1000) {
       setMessage("Content cannot be longer than 1000 chars");
       return;
     }
@@ -200,11 +201,11 @@ export default function Home() {
       const program = getProgram();
       if (!program) return;
 
-      const noteAddress = getNoteAddress(note.account.title);
+      const noteAddress = getNoteAddress(editingNote.account.title);
       if (!noteAddress) return;
 
       await program.methods
-        .updateNote(editContent)
+        .updateNote(content)
         .accounts({
           note: noteAddress,
           author: wallet.publicKey,
@@ -212,8 +213,9 @@ export default function Home() {
         .rpc();
 
       setMessage("Note updated successfully.");
-      setEditTitle("");
-      setEditContent("");
+      setEditingNote(null);
+      setTitle("");
+      setContent("");
       await loadNotes();
     } catch (error) {
       console.error("Error updating note:", error);
@@ -279,6 +281,7 @@ export default function Home() {
             value={title}
             placeholder="Title here.."
             onChange={(e) => setTitle(e.target.value)}
+            readOnly={!!editingNote}
             className="border border-gray-300 rounded-lg p-2 w-full"
           />
         </div>
@@ -296,20 +299,44 @@ export default function Home() {
             placeholder="Content here.."
           />
         </div>
-        <button
-          onClick={() => createNote(title, content)}
-          disabled={loading || !title.trim() || !content.trim()}
-          className="bg-blue-500 text-white w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? "Creating note..." : "Create Note"}
-        </button>
+        {editingNote ? (
+          <div className="flex gap-4">
+            <button
+              onClick={() => updateNote()}
+              disabled={loading || !content.trim()}
+              className="bg-green-500 text-white w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Saving..." : "Save Update"}
+            </button>
+            <button
+              onClick={() => {
+                setEditingNote(null);
+                setTitle("");
+                setContent("");
+                setMessage("");
+              }}
+              disabled={loading}
+              className="bg-gray-300 text-black w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => createNote(title, content)}
+            disabled={loading || !title.trim() || !content.trim()}
+            className="bg-blue-500 text-white w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Creating note..." : "Create Note"}
+          </button>
+        )}
       </div>
       <div>
-        {notes?.map((note: any) => {
+        {notes?.map((note: any, index: number) => {
           return (
             <div
               className="mb-6 border-2 border-gray-300 p-2 rounded-lg"
-              key={note.account.author}
+              key={`${note.account.author}-${index}`}
             >
               <h3 className="text-xl font-bold">{note.account.title}</h3>
               <p className="text-gray-600">{note.account.content}</p>
@@ -323,18 +350,24 @@ export default function Home() {
               </div>
               <div className="flex gap-4 mt-6">
                 <button
-                  onClick={updateNote}
-                  disabled={loading || !editTitle.trim() || !editContent.trim()}
-                  className="p-2 text-white bg-green-400 rounded-lg"
+                  onClick={() => {
+                    // populate top inputs and switch to edit mode
+                    setEditingNote(note);
+                    setTitle(note.account.title);
+                    setContent(note.account.content);
+                    setMessage("");
+                  }}
+                  disabled={loading}
+                  className="p-2 text-white bg-green-400 rounded-lg cursor-pointer"
                 >
-                  Update
+                  Edit
                 </button>
                 <button
-                  onClick={deleteNote}
+                  onClick={() => deleteNote(note)}
                   disabled={loading}
-                  className="p-2 text-white bg-red-400 rounded-lg"
+                  className="p-2 text-white bg-red-400 rounded-lg cursor-pointer"
                 >
-                  Delete
+                  {loading ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
