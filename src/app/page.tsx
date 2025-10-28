@@ -265,7 +265,7 @@ export default function Home() {
 
   console.log("Rendering notes:", notes, notes?.length);
   return (
-    <div className="text-gray-700">
+    <div className="text-gray-700 p-4">
       <div className="mb-6">
         <h2 className="text-2xl mb-6">Create new Note</h2>
         <div className="mb-4">
@@ -305,8 +305,40 @@ export default function Home() {
         </button>
       </div>
       <div>
-        {notes?.map((note: any, index: number) => {
-          return <div>{JSON.stringify(note)}</div>;
+        {notes?.map((note: any) => {
+          return (
+            <div
+              className="mb-6 border-2 border-gray-300 p-2 rounded-lg"
+              key={note.account.author}
+            >
+              <h3 className="text-xl font-bold">{note.account.title}</h3>
+              <p className="text-gray-600">{note.account.content}</p>
+              <div className="text-sm text-gray-500">
+                Create At:{" "}
+                {new Date(note.account.createdAt.toNumber()).toLocaleString()}
+              </div>
+              <div className="text-sm text-gray-500">
+                Last updated:{" "}
+                {new Date(note.account.lastUpdated.toNumber()).toLocaleString()}
+              </div>
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={updateNote}
+                  disabled={loading || !editTitle.trim() || !editContent.trim()}
+                  className="p-2 text-white bg-green-400 rounded-lg"
+                >
+                  Update
+                </button>
+                <button
+                  onClick={deleteNote}
+                  disabled={loading}
+                  className="p-2 text-white bg-red-400 rounded-lg"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          );
         })}
       </div>
     </div>
