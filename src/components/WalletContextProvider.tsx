@@ -24,17 +24,7 @@ const WalletContextProvider = ({ children }: { children: ReactNode }) => {
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect={true}>
-        <WalletModalProvider>
-          <div className="min-h-screen bg-gray-100">
-            <header className="bg-white shadow-sm px-5 py-4 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-800">My Notes</h1>
-                <WalletMultiButton />
-              </div>
-            </header>
-            <main>{children}</main>
-          </div>
-        </WalletModalProvider>
+        <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );

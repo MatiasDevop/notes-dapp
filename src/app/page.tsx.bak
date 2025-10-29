@@ -1,0 +1,182 @@
+"use client";
+
+import Link from "next/link";
+
+export default function Home() {
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Navbar */}
+      <nav className="border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <Link
+                href="/"
+                className="text-xl font-semibold text-gray-900 flex items-center"
+              >
+                <svg
+                  className="w-6 h-6 text-green-600 mr-2"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M3 3h18v18H3V3zm16 16V5H5v14h14z" />
+                </svg>
+                Notes dApp
+              </Link>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Link href="/demo" className="text-gray-500 hover:text-gray-900">
+                Demo
+              </Link>
+              <Link
+                href="/demo"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+              >
+                Start for free
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <div className="relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="pt-16 pb-20">
+            {/* Hero Content */}
+            <div className="relative z-10 max-w-2xl">
+              <h1 className="text-5xl font-bold text-gray-900 tracking-tight mb-6">
+                Your second brain on Solana
+              </h1>
+              <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+                Remember everything and tackle any project with your notes,
+                tasks, and schedule all in one secure decentralized place.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href="/demo"
+                  className="bg-green-600 text-white px-8 py-4 rounded-lg font-medium hover:bg-green-700 transition-colors text-center"
+                >
+                  Get Started
+                </Link>
+                <Link
+                  href="#features"
+                  className="text-gray-600 hover:text-gray-900 px-8 py-4 rounded-lg font-medium border border-gray-200 hover:border-gray-400 transition-colors text-center"
+                >
+                  Learn more
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Image Grid */}
+        <div className="absolute top-0 right-0 w-1/2 h-full hidden lg:block">
+          <div className="grid grid-cols-2 gap-4 p-8">
+            {[1, 2, 3, 4].map((item, index) => (
+              <div
+                key={item}
+                className={`bg-gray-50 rounded-lg p-4 shadow-sm ${
+                  index === 1 ? "mt-8" : index === 2 ? "-mt-8" : ""
+                }`}
+              >
+                <div className="h-40 bg-white rounded-md shadow-sm"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Features Section */}
+      <div className="bg-gray-50" id="features">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <div className="bg-white p-8 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-6">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold mb-4 text-gray-900">
+                Decentralized Storage
+              </h3>
+              <p className="text-gray-600">
+                Your notes are stored securely on the Solana blockchain, giving
+                you full control over your data.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="bg-white p-8 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-6">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold mb-4 text-gray-900">
+                Fast & Efficient
+              </h3>
+              <p className="text-gray-600">
+                Built on Solana's high-performance blockchain for lightning-fast
+                note operations.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="bg-white p-8 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-6">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-green-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold mb-4 text-gray-900">
+                Web3 Native
+              </h3>
+              <p className="text-gray-600">
+                Connect with your Solana wallet and start taking notes in
+                seconds. No traditional signup required.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

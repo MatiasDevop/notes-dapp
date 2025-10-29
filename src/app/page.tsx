@@ -1,327 +1,164 @@
 "use client";
 
-import { IDL } from "@/utils/constant";
-import { AnchorProvider, Program } from "@project-serum/anchor";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram } from "@solana/web3.js";
-import { useEffect, useState } from "react";
-
-const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID || "");
+import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
-  const { connection } = useConnection();
-  const wallet = useWallet();
-
-  const [notes, setNotes] = useState<any[]>([]);
-  // loading is kept for fetch/load UI; actions have their own flags so they don't conflict
-  const [loading, setLoading] = useState(false);
-  // per-action loading flags (renamed for clarity)
-  const [createLoading, setCreateLoading] = useState(false);
-  const [updateLoading, setUpdateLoading] = useState(false);
-  // store the publicKey (base58) of the note being deleted or null
-  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  // When set, we are editing this note and reuse the top title/content inputs
-  const [editingNote, setEditingNote] = useState<any | null>(null);
-
-  const getProgram = () => {
-    if (!wallet.publicKey || !wallet.signTransaction) return null;
-    const provider = new AnchorProvider(connection, wallet as any, {});
-    return new Program(IDL as any, PROGRAM_ID, provider);
-  };
-
-  const getNoteAddress = (title: string) => {
-    if (!wallet.publicKey || !wallet.signTransaction) return null;
-    const [noteAddress] = PublicKey.findProgramAddressSync(
-      [Buffer.from("note"), wallet.publicKey.toBuffer(), Buffer.from(title)],
-      PROGRAM_ID
-    );
-    return noteAddress;
-  };
-
-  // Load notes
-  const loadNotes = async () => {
-    if (!wallet.publicKey) return;
-
-    setLoading(true);
-    try {
-      const program = getProgram();
-      if (!program) return;
-
-      const notes = await program.account.note.all([
-        {
-          memcmp: {
-            offset: 8, // Discriminator size account: Note: {author, title, con....}
-            bytes: wallet.publicKey.toBase58(),
-          },
-        },
-      ]);
-
-      console.log("Loaded notes:", notes);
-      setNotes(notes);
-      setMessage("");
-    } catch (error) {
-      console.error("Error loading notes:", error);
-      setMessage("Failed to load notes.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  //create notes
-  const createNote = async (title: string, content: string) => {
-    if (!title.trim() || !content.trim()) {
-      setMessage("Title and content cannot be empty.");
-      return;
-    }
-    if (title.length > 100) {
-      setMessage("Title cannot be longer than 100 chars");
-      return;
-    }
-    if (content.length > 1000) {
-      setMessage("Content cannot be longer than 1000 chars");
-      return;
-    }
-
-    setCreateLoading(true);
-    try {
-      const program = getProgram();
-      if (!program) return;
-
-      const noteAddress = getNoteAddress(title);
-      if (!noteAddress) return;
-
-      await program.methods
-        .createNote(title, content)
-        .accounts({
-          note: noteAddress,
-          author: wallet.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc();
-
-      console.log("Note created with title:", title);
-      setMessage("Note created successfully.");
-      setTitle("");
-      setContent("");
-      await loadNotes();
-    } catch (error) {
-      console.error("Error creating note:", error);
-      setMessage("Failed to create note.");
-    } finally {
-      setCreateLoading(false);
-    }
-  };
-
-  // update notes
-  const updateNote = async () => {
-    // editingNote must be set and we reuse the top `content` input as the new content
-    if (!editingNote) return;
-    if (!content.trim()) {
-      setMessage("Content cannot be empty.");
-      return;
-    }
-    if (content.length > 1000) {
-      setMessage("Content cannot be longer than 1000 chars");
-      return;
-    }
-
-    setUpdateLoading(true);
-    try {
-      const program = getProgram();
-      if (!program) return;
-
-      const noteAddress = getNoteAddress(editingNote.account.title);
-      if (!noteAddress) return;
-
-      await program.methods
-        .updateNote(content)
-        .accounts({
-          note: noteAddress,
-          author: wallet.publicKey,
-        })
-        .rpc();
-
-      setMessage("Note updated successfully.");
-      setEditingNote(null);
-      setTitle("");
-      setContent("");
-      await loadNotes();
-    } catch (error) {
-      console.error("Error updating note:", error);
-      setMessage("Failed to update note.");
-    } finally {
-      setUpdateLoading(false);
-    }
-  };
-  // delete notes
-
-  const deleteNote = async (note: any) => {
-    // mark this specific note as deleting so other UI actions aren't mistaken for deleting
-    const noteKey = note?.publicKey?.toBase58?.() ?? null;
-    setDeleteLoading(noteKey);
-    try {
-      const program = getProgram();
-      if (!program) return;
-
-      const noteAddress = getNoteAddress(note.account.title);
-      if (!noteAddress) return;
-
-      await program.methods
-        .deleteNote()
-        .accounts({
-          note: noteAddress,
-          author: wallet.publicKey,
-        })
-        .rpc();
-      setMessage("Note deleted successfully.");
-      await loadNotes();
-    } catch (error) {
-      console.error("Error deleting note:", error);
-      setMessage("Error to delete note.");
-    } finally {
-      setDeleteLoading(null);
-    }
-  };
-
-  useEffect(() => {
-    if (wallet.connected) {
-      loadNotes();
-    }
-  }, [wallet.connected]);
-
-  if (!wallet.connected) {
-    return (
-      <div className="text-gray-700">
-        {" "}
-        Wallet not connected please connect your wallet
-      </div>
-    );
-  }
-
-  console.log("Rendering notes:", notes, notes?.length);
   return (
-    <div className="text-gray-700 p-4">
-      <div className="mb-6">
-        <h2 className="text-2xl mb-6">Create new Note</h2>
-        <div className="mb-4">
-          <label htmlFor="note-title" className="text-sm block font-medium">
-            Title ({title.length}/100)
-          </label>
-          <input
-            id="note-title"
-            type="text"
-            name="title"
-            value={title}
-            placeholder="Title here.."
-            onChange={(e) => setTitle(e.target.value)}
-            readOnly={!!editingNote}
-            className="border border-gray-300 rounded-lg p-2 w-full"
-          />
-        </div>
-        <div className="mb-4">
-          <label htmlFor="note-content" className="text-sm block font-medium">
-            Content ({content.length}/1000)
-          </label>
-          <textarea
-            maxLength={1000}
-            name="content"
-            value={content}
-            rows={5}
-            onChange={(e) => setContent(e.target.value)}
-            className="border border-gray-300 rounded-lg p-2 w-full"
-            placeholder="Content here.."
-          />
-        </div>
-        {editingNote ? (
-          <div className="flex gap-4">
-            <button
-              onClick={() => updateNote()}
-              disabled={updateLoading || !content.trim()}
-              className="bg-green-500 text-white w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {updateLoading ? "Saving..." : "Save Update"}
-            </button>
-            <button
-              onClick={() => {
-                setEditingNote(null);
-                setTitle("");
-                setContent("");
-                setMessage("");
-              }}
-              disabled={updateLoading}
-              className="bg-gray-300 text-black w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => createNote(title, content)}
-            disabled={createLoading || !title.trim() || !content.trim()}
-            className="bg-blue-500 text-white w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {createLoading ? "Creating note..." : "Create Note"}
-          </button>
-        )}
-      </div>
-      {loading ? (
-        <div>Loading your notes...</div>
-      ) : (
-        <div>
-          {notes?.map((note: any, index: number) => {
-            const noteKey = note?.publicKey?.toBase58?.();
-            return (
-              <div
-                className="mb-6 border-2 border-gray-300 p-2 rounded-lg"
-                key={`${note.account.author}-${index}`}
-              >
-                <h3 className="text-xl font-bold">{note.account.title}</h3>
-                <p className="text-gray-600">{note.account.content}</p>
-                <div className="text-sm text-gray-500">
-                  Create At:{" "}
-                  {new Date(note.account.createdAt.toNumber()).toLocaleString()}
-                </div>
-                <div className="text-sm text-gray-500">
-                  Last updated:{" "}
-                  {new Date(
-                    note.account.lastUpdated.toNumber()
-                  ).toLocaleString()}
-                </div>
-                <div className="flex gap-4 mt-6">
-                  <button
-                    onClick={() => {
-                      // populate top inputs and switch to edit mode
-                      setEditingNote(note);
-                      setTitle(note.account.title);
-                      setContent(note.account.content);
-                      setMessage("");
-                    }}
-                    disabled={
-                      createLoading ||
-                      updateLoading ||
-                      deleteLoading === noteKey
-                    }
-                    className="p-2 text-white bg-green-400 rounded-lg cursor-pointer"
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <div className="relative bg-linear-to-b from-white to-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="pt-20 pb-16 text-center lg:text-left lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center">
+            <div>
+              <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight sm:leading-tight mb-6">
+                Your second brain <br className="hidden sm:inline" />
+                <span className="text-green-600">on Solana</span>
+              </h1>
+              <p className="text-lg sm:text-xl text-gray-600 mb-8 max-w-2xl mx-auto lg:mx-0">
+                Remember everything and tackle any project with your notes,
+                tasks, and schedule all in one secure decentralized place.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                <Link
+                  href="/demo"
+                  className="inline-flex items-center justify-center bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-all hover:shadow-lg group"
+                >
+                  Get Started
+                  <svg
+                    className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
                   >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => deleteNote(note)}
-                    disabled={deleteLoading === noteKey}
-                    className="p-2 text-white bg-red-400 rounded-lg cursor-pointer"
-                  >
-                    {deleteLoading === noteKey ? "Deleting..." : "Delete"}
-                  </button>
+                    <path
+                      fillRule="evenodd"
+                      d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </Link>
+                <Link
+                  href="#features"
+                  className="inline-flex items-center justify-center text-gray-600 hover:text-gray-900 px-6 py-3 rounded-lg font-medium border border-gray-200 hover:border-gray-400 transition-all bg-white"
+                >
+                  See how it works
+                </Link>
+              </div>
+            </div>
+            <div className="hidden lg:block relative mt-12 lg:mt-0">
+              <div className="relative mx-auto w-full max-w-lg">
+                <div className="absolute top-0 -left-4 w-72 h-72 bg-green-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+                <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+                <div className="absolute -bottom-8 left-20 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+                <div className="relative">
+                  <div className="rounded-2xl shadow-xl p-4 backdrop-blur-sm bg-white/80">
+                    {/* Placeholder for note preview */}
+                    <div className="space-y-3">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Features Section */}
+      <div className="py-24 bg-white" id="features">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Everything you need to stay organized
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Powerful features to help you capture, organize, and share your
+              thoughts securely on the blockchain.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <div className="bg-white rounded-xl p-8 shadow-sm hover:shadow-md transition-all border border-gray-100">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-6">
+                <svg
+                  className="w-6 h-6 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-4 text-gray-900">
+                Decentralized Storage
+              </h3>
+              <p className="text-gray-600">
+                Your notes are stored securely on the Solana blockchain, giving
+                you full control over your data.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="bg-white rounded-xl p-8 shadow-sm hover:shadow-md transition-all border border-gray-100">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-6">
+                <svg
+                  className="w-6 h-6 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-4 text-gray-900">
+                Fast & Efficient
+              </h3>
+              <p className="text-gray-600">
+                Built on Solana's high-performance blockchain for lightning-fast
+                note operations.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="bg-white rounded-xl p-8 shadow-sm hover:shadow-md transition-all border border-gray-100">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-6">
+                <svg
+                  className="w-6 h-6 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold mb-4 text-gray-900">
+                Web3 Native
+              </h3>
+              <p className="text-gray-600">
+                Connect with your Solana wallet and start taking notes in
+                seconds. No traditional signup required.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
