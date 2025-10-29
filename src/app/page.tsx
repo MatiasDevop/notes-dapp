@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 
 const PROGRAM_ID = new PublicKey(process.env.NEXT_PUBLIC_PROGRAM_ID!);
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 export default function Home() {
   const { connection } = useConnection();
   const wallet = useWallet();
