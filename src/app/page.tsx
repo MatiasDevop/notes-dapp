@@ -87,7 +87,13 @@ export default function Home() {
   const wallet = useWallet();
 
   const [notes, setNotes] = useState<any[]>([]);
+  // loading is kept for fetch/load UI; actions have their own flags so they don't conflict
   const [loading, setLoading] = useState(false);
+  // per-action loading flags (renamed for clarity)
+  const [createLoading, setCreateLoading] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  // store the publicKey (base58) of the note being deleted or null
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
@@ -154,7 +160,7 @@ export default function Home() {
       return;
     }
 
-    setLoading(true);
+    setCreateLoading(true);
     try {
       const program = getProgram();
       if (!program) return;
@@ -179,8 +185,9 @@ export default function Home() {
     } catch (error) {
       console.error("Error creating note:", error);
       setMessage("Failed to create note.");
+    } finally {
+      setCreateLoading(false);
     }
-    setLoading(false);
   };
 
   // update notes
@@ -196,7 +203,7 @@ export default function Home() {
       return;
     }
 
-    setLoading(true);
+    setUpdateLoading(true);
     try {
       const program = getProgram();
       if (!program) return;
@@ -220,13 +227,16 @@ export default function Home() {
     } catch (error) {
       console.error("Error updating note:", error);
       setMessage("Failed to update note.");
+    } finally {
+      setUpdateLoading(false);
     }
-    setLoading(false);
   };
   // delete notes
 
   const deleteNote = async (note: any) => {
-    setLoading(true);
+    // mark this specific note as deleting so other UI actions aren't mistaken for deleting
+    const noteKey = note?.publicKey?.toBase58?.() ?? null;
+    setDeleteLoading(noteKey);
     try {
       const program = getProgram();
       if (!program) return;
@@ -246,8 +256,9 @@ export default function Home() {
     } catch (error) {
       console.error("Error deleting note:", error);
       setMessage("Error to delete note.");
+    } finally {
+      setDeleteLoading(null);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -303,10 +314,10 @@ export default function Home() {
           <div className="flex gap-4">
             <button
               onClick={() => updateNote()}
-              disabled={loading || !content.trim()}
+              disabled={updateLoading || !content.trim()}
               className="bg-green-500 text-white w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Saving..." : "Save Update"}
+              {updateLoading ? "Saving..." : "Save Update"}
             </button>
             <button
               onClick={() => {
@@ -315,7 +326,7 @@ export default function Home() {
                 setContent("");
                 setMessage("");
               }}
-              disabled={loading}
+              disabled={updateLoading}
               className="bg-gray-300 text-black w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
@@ -324,56 +335,67 @@ export default function Home() {
         ) : (
           <button
             onClick={() => createNote(title, content)}
-            disabled={loading || !title.trim() || !content.trim()}
+            disabled={createLoading || !title.trim() || !content.trim()}
             className="bg-blue-500 text-white w-full rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Creating note..." : "Create Note"}
+            {createLoading ? "Creating note..." : "Create Note"}
           </button>
         )}
       </div>
-      <div>
-        {notes?.map((note: any, index: number) => {
-          return (
-            <div
-              className="mb-6 border-2 border-gray-300 p-2 rounded-lg"
-              key={`${note.account.author}-${index}`}
-            >
-              <h3 className="text-xl font-bold">{note.account.title}</h3>
-              <p className="text-gray-600">{note.account.content}</p>
-              <div className="text-sm text-gray-500">
-                Create At:{" "}
-                {new Date(note.account.createdAt.toNumber()).toLocaleString()}
+      {loading ? (
+        <div>Loading your notes...</div>
+      ) : (
+        <div>
+          {notes?.map((note: any, index: number) => {
+            const noteKey = note?.publicKey?.toBase58?.();
+            return (
+              <div
+                className="mb-6 border-2 border-gray-300 p-2 rounded-lg"
+                key={`${note.account.author}-${index}`}
+              >
+                <h3 className="text-xl font-bold">{note.account.title}</h3>
+                <p className="text-gray-600">{note.account.content}</p>
+                <div className="text-sm text-gray-500">
+                  Create At:{" "}
+                  {new Date(note.account.createdAt.toNumber()).toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-500">
+                  Last updated:{" "}
+                  {new Date(
+                    note.account.lastUpdated.toNumber()
+                  ).toLocaleString()}
+                </div>
+                <div className="flex gap-4 mt-6">
+                  <button
+                    onClick={() => {
+                      // populate top inputs and switch to edit mode
+                      setEditingNote(note);
+                      setTitle(note.account.title);
+                      setContent(note.account.content);
+                      setMessage("");
+                    }}
+                    disabled={
+                      createLoading ||
+                      updateLoading ||
+                      deleteLoading === noteKey
+                    }
+                    className="p-2 text-white bg-green-400 rounded-lg cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => deleteNote(note)}
+                    disabled={deleteLoading === noteKey}
+                    className="p-2 text-white bg-red-400 rounded-lg cursor-pointer"
+                  >
+                    {deleteLoading === noteKey ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
               </div>
-              <div className="text-sm text-gray-500">
-                Last updated:{" "}
-                {new Date(note.account.lastUpdated.toNumber()).toLocaleString()}
-              </div>
-              <div className="flex gap-4 mt-6">
-                <button
-                  onClick={() => {
-                    // populate top inputs and switch to edit mode
-                    setEditingNote(note);
-                    setTitle(note.account.title);
-                    setContent(note.account.content);
-                    setMessage("");
-                  }}
-                  disabled={loading}
-                  className="p-2 text-white bg-green-400 rounded-lg cursor-pointer"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => deleteNote(note)}
-                  disabled={loading}
-                  className="p-2 text-white bg-red-400 rounded-lg cursor-pointer"
-                >
-                  {loading ? "Deleting..." : "Delete"}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
